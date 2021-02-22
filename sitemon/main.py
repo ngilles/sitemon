@@ -1,6 +1,7 @@
 
 import re
 import time
+import logging
 
 from datetime import datetime
 from typing import Any, Optional, AsyncIterable
@@ -16,6 +17,8 @@ from .settings import settings
 from .util import timed
 
 
+log = logging.getLogger(__name__)
+
 app = faust.App('sitemon', broker=settings.kafka_broker)
 reports_topic = app.topic('monitor_reports')
 
@@ -27,8 +30,8 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
     async for report in reports:
         async with pool.acquire() as db:
             async with db.transaction():
-                print(f'Processing report: {report}')
-                print(await db.execute('''
+                log.info(f'Processing report: {report}')
+                await db.execute('''
                     INSERT INTO site_status (site_id, reachable, status_code, content_valid, latency, last_update) 
                     VALUES ($1, $2, $3, $4, $5, $6)
                     ON CONFLICT (site_id) DO 
@@ -41,13 +44,14 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
                     ''',
                     report.site_id,
                     report.response_complete,
+
                     report.response_code,
                     report.response_valid,
                     report.response_time,
                     report.timestamp,
-                ))
+                )
 
-                print(await db.execute('''INSERT INTO site_reports(site_id, timestamp, reachable, status_code, content_valid, latency)
+                await db.execute('''INSERT INTO site_reports(site_id, timestamp, reachable, status_code, content_valid, latency)
                                     VALUES ($1, $2, $3, $4, $5, $6)''',
                                     report.site_id,
                                     report.timestamp,
@@ -56,7 +60,7 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
                                     report.response_code,
                                     report.response_valid,
                                     report.response_time,
-                ))
+                )
 
 
 
