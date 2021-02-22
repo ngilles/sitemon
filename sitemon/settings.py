@@ -1,8 +1,6 @@
-
 from typing import Optional
 
 from pydantic import BaseSettings, FilePath
-
 
 
 class Settings(BaseSettings):

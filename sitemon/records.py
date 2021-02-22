@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from re import Pattern
 from typing import Optional

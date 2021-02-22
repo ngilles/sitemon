@@ -1,20 +1,16 @@
-
-import re
 import logging
+import re
 import ssl
-
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 import asyncpg
 import faust
-
 from faust.types.streams import StreamT
 
 from .monitor import SiteMonitor
-from .records import SiteInfo, MonitorReport
+from .records import MonitorReport, SiteInfo
 from .settings import settings
-
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +26,6 @@ if settings.kafka_auth_ca:
     ssl_context.load_cert_chain(str(settings.kafka_access_crt), keyfile=str(settings.kafka_access_key))
     extra_kwargs['broker_credentials'] = ssl_context
 
-
 app = faust.App('sitemon', broker=settings.kafka_broker, **extra_kwargs)
 reports_topic = app.topic('monitor_reports')
 
@@ -38,7 +33,7 @@ reports_topic = app.topic('monitor_reports')
 @app.agent(reports_topic)
 async def reports_agent(reports: StreamT[MonitorReport]) -> None:
     '''The Agent responsible storing the site monitoring reports.
-    
+
     The agent consume the elements coming in from the Kafka reports
     stream and stores them in the postgres database. The reports are
     store in the log, as well as a current status table. This is
@@ -56,10 +51,11 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
         async with pool.acquire() as db:
             async with db.transaction():
                 log.info('Processing report: %s', report)
-                await db.execute('''
-                    INSERT INTO site_status (site_id, reachable, status_code, content_valid, latency, last_update) 
+                await db.execute(
+                    '''
+                    INSERT INTO site_status (site_id, reachable, status_code, content_valid, latency, last_update)
                     VALUES ($1, $2, $3, $4, $5, $6)
-                    ON CONFLICT (site_id) DO 
+                    ON CONFLICT (site_id) DO
                         UPDATE SET
                         reachable = EXCLUDED.reachable,
                         status_code = EXCLUDED.status_code,
@@ -69,22 +65,21 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
                     ''',
                     report.site_id,
                     report.response_complete,
-
                     report.response_code,
                     report.response_valid,
                     report.response_time,
                     report.timestamp,
                 )
 
-                await db.execute('''INSERT INTO site_reports(site_id, timestamp, reachable, status_code, content_valid, latency)
+                await db.execute(
+                    '''INSERT INTO site_reports(site_id, timestamp, reachable, status_code, content_valid, latency)
                                     VALUES ($1, $2, $3, $4, $5, $6)''',
-                                    report.site_id,
-                                    report.timestamp,
-
-                                    report.response_complete,
-                                    report.response_code,
-                                    report.response_valid,
-                                    report.response_time,
+                    report.site_id,
+                    report.timestamp,
+                    report.response_complete,
+                    report.response_code,
+                    report.response_valid,
+                    report.response_time,
                 )
 
 
@@ -101,7 +96,7 @@ def validate_regex_pattern(rp: str) -> Optional[re.Pattern]:
 
 def parse_site_info(site) -> SiteInfo:
     '''Create a SiteInfo record from a database record/dict.
-    
+
     :param record site:
         The db record for the site, containing:
         **id**: The numerical id
@@ -117,23 +112,16 @@ def parse_site_info(site) -> SiteInfo:
     else:
         pattern = None
 
-    return SiteInfo(
-        id=site['id'],
-        name=site['name'],
-        test_url=site['test_url'],
-        regex=pattern
-    )
+    return SiteInfo(id=site['id'], name=site['name'], test_url=site['test_url'], regex=pattern)
 
 
 async def load_sites_from_db(db) -> List[SiteInfo]:
     '''Loads site configurations from the database.
-    
+
     :param connnection db: The asyncpg database connection to use.
     '''
     try:
-        sites = await db.fetch(
-            '''SELECT id, name, test_url, regex FROM sites WHERE enabled = true;'''
-        )
+        sites = await db.fetch('''SELECT id, name, test_url, regex FROM sites WHERE enabled = true;''')
 
         return [parse_site_info(site) for site in sites]
 
@@ -144,14 +132,18 @@ async def load_sites_from_db(db) -> List[SiteInfo]:
 
 @app.command()
 async def test_data() -> None:
-    print(await reports_agent.cast(MonitorReport(
-        site_id=1,
-        timestamp=datetime.now(),
-        response_complete=True,
-        response_time=0.1,
-        response_code=200,
-        response_valid=True,
-    )))
+    print(
+        await reports_agent.cast(
+            MonitorReport(
+                site_id=1,
+                timestamp=datetime.now(),
+                response_complete=True,
+                response_time=0.1,
+                response_code=200,
+                response_valid=True,
+            )
+        )
+    )
 
 
 @app.command()
@@ -165,7 +157,7 @@ async def monitor_sites():
 
     # Start and run the Site Monitor
     site_monitor = SiteMonitor(sites, reports_agent, scan_interval=settings.scan_interval)
-    await site_monitor.run() # Runs forever
+    await site_monitor.run()  # Runs forever
 
 
 # Allow the script to be called directly and handle the Faustiness
