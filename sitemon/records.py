@@ -15,10 +15,8 @@ class SiteInfo(faust.Record, coerce=True):
 
 class MonitorReport(faust.Record, coerce=True):
     site_id: int
-    
-    #site_url: str
     timestamp: datetime
     response_complete: bool
-    response_time: float
-    response_code: int
+    response_time: Optional[float]
+    response_code: Optional[int]
     response_valid: Optional[bool]
