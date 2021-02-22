@@ -119,14 +119,16 @@ async def load_sites_from_db(db) -> List[SiteInfo]:
     
     :param connnection db: The asyncpg database connection to use.
     '''
+    try:
+        sites = await db.fetch(
+            '''SELECT id, name, test_url, regex FROM sites WHERE enabled = true;'''
+        )
 
-    sites = await db.fetch(
-        '''SELECT id, name, test_url, regex FROM sites WHERE enabled = true;'''
-    )
+        return [parse_site_info(site) for site in sites]
 
-    await db.close() # Disconnect the db
-
-    return [parse_site_info(site) for site in sites]
+    except Exception as e:
+        log.error('Could not load sites from database...')
+        raise e
 
 
 @app.command()
