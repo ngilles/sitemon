@@ -2,6 +2,7 @@
 import re
 import time
 import logging
+import ssl
 
 from datetime import datetime
 from typing import Any, Optional, AsyncIterable, List
@@ -20,7 +21,20 @@ from .util import timed
 
 log = logging.getLogger(__name__)
 
-app = faust.App('sitemon', broker=settings.kafka_broker)
+extra_kwargs = {}
+
+# SSL Support for Kafka connection
+if settings.kafka_auth_ca:
+    if not settings.kafka_access_key or not settings.kafka_access_crt:
+        print('All of CA, access key and access certificate need to be specified for SSL support')
+        raise Exception('Incomplete SSL configuration')
+
+    ssl_context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH, cafile=str(settings.kafka_auth_ca))
+    ssl_context.load_cert_chain(str(settings.kafka_access_crt), keyfile=str(settings.kafka_access_key))
+    extra_kwargs['broker_credentials'] = ssl_context
+
+
+app = faust.App('sitemon', broker=settings.kafka_broker, **extra_kwargs)
 reports_topic = app.topic('monitor_reports')
 
 
