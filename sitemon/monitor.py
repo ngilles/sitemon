@@ -6,7 +6,6 @@ from typing import List
 import httpx
 
 from .records import MonitorReport, SiteInfo
-from .settings import settings
 from .util import timed
 
 log = logging.getLogger(__name__)
@@ -20,6 +19,7 @@ class SiteMonitor:
     def __init__(self, sites: List[SiteInfo], reports_agent, scan_interval=60, max_concurrent_checks=100):
         self._pool = None
         self._sites = sites
+        self._scan_interval = scan_interval
         self._reports_agent = reports_agent
 
         if max_concurrent_checks < 1:
@@ -100,4 +100,4 @@ class SiteMonitor:
         '''Run the scan loop infinitely.'''
         while True:
             await self.scan_sites()
-            await asyncio.sleep(settings.scan_interval)
+            await asyncio.sleep(self._scan_interval)
