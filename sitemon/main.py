@@ -4,7 +4,7 @@ import time
 import logging
 
 from datetime import datetime
-from typing import Any, Optional, AsyncIterable
+from typing import Any, Optional, AsyncIterable, List
 
 import asyncpg
 import faust
@@ -12,6 +12,7 @@ import httpx
 
 from faust.types.streams import StreamT
 
+from .monitor import SiteMonitor
 from .records import SiteInfo, MonitorReport
 from .settings import settings
 from .util import timed
@@ -25,6 +26,19 @@ reports_topic = app.topic('monitor_reports')
 
 @app.agent(reports_topic)
 async def reports_agent(reports: StreamT[MonitorReport]) -> None:
+    '''The Agent responsible storing the site monitoring reports.
+    
+    The agent consume the elements coming in from the Kafka reports
+    stream and stores them in the postgres database. The reports are
+    store in the log, as well as a current status table. This is
+    performed within a transaction. Order (per site) is guaranteed
+    by the Kafka stream.
+
+    A connection pool is used to manage the connections to the
+    database and will handle some connection failures. In case
+    of errors during the insertion in the db, the data point may be
+    lost. The agent will be restarted automatically (by Faust).
+    '''
     pool = await asyncpg.create_pool(dsn=settings.postgres_dsn)
 
     async for report in reports:
@@ -63,7 +77,56 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
                 )
 
 
+def validate_regex_pattern(rp: str) -> Optional[re.Pattern]:
+    '''Compile a regex pattern, returning None if invalid.'''
+    if rp is None:
+        return None
 
+    try:
+        return re.compile(rp)
+    except re.error:
+        return None
+
+
+def parse_site_info(site) -> SiteInfo:
+    '''Create a SiteInfo record from a database record/dict.
+    
+    :param record site:
+        The db record for the site, containing:
+        **id**: The numerical id
+        **name**: The human readable name of the site
+        **test_url**: The URL to use as for the testing
+        **regex**: An optional regex string use to test site content
+    '''
+
+    if site['regex'] is not None:
+        pattern = validate_regex_pattern(site['regex'])
+        if pattern is None:
+            log.warn(f'Regex pattern for site {site["id"]} is invalid, ignoring...')
+    else:
+        pattern = None
+
+    return SiteInfo(
+        id=site['id'],
+        name=site['name'],
+        test_url=site['test_url'],
+        regex=pattern
+    )
+
+
+async def load_sites_from_db(db) -> List[SiteInfo]:
+    '''Loads site configurations from the database.
+    
+    :param connnection db: The asyncpg database connection to use.
+    '''
+
+    sites = await db.fetch(
+        '''SELECT id, name, test_url, regex FROM sites WHERE enabled = true;'''
+    )
+
+    await db.close() # Disconnect the db
+
+    return [parse_site_info(site) for site in sites]
 
 
 @app.command()
@@ -78,72 +141,20 @@ async def test_data() -> None:
     )))
 
 
-def validate_regex_pattern(rp: str) -> Optional[re.Pattern]:
-    if rp is None:
-        return None
-
-    try:
-        return re.compile(rp)
-    except re.error:
-        print(f'Could not validate pattern ...')
-        return None
-
-
-
-
-async def scan_site(site_info):
-    async with httpx.AsyncClient() as http:
-        rtt, response = await timed(http.get, site_info.test_url)
-        print(site_info, rtt, response)
-        
-        report = MonitorReport(
-            site_id = 1,
-            timestamp = datetime.now(),
-            response_complete = True,
-            response_time = rtt,
-            response_code = response.status_code,
-            response_valid = True,
-        )
-
-        await reports_agent.cast(report)
-
-class SiteMonitor:
-    def __init__(self):
-        self._pool = None
-        self.sites = []
-
-    async def connect_db(self):
-        if self._pool is None:
-            self._pool = await asyncpg.create_pool(dsn=settings.postgres_dsn)
-
-    async def load_sites(self):
-        async with self._pool.acquire() as db:
-            sites = await db.fetch('''SELECT * FROM sites''')
-            print(sites)
-
-            site_infos = [SiteInfo(id=site['id'], name=site['name'], test_url=site['test_url'], regex=validate_regex_pattern(site['regex'])) for site in sites]
-            print(site_infos)
-
-            return site_infos
-
-    async def scan_site():
-        # scan the site
-        pass
-
-@app.command()
-async def scan_sites():
-    sm = SiteMonitor()
-    await sm.connect_db()
-    site_infos = await sm.load_sites()
-    for site in site_infos:
-        await scan_site(site)
-
-
 @app.command()
 async def monitor_sites():
-    sm = SiteMonitor()
-    await sm.start_monitoring()
+    '''Runs the site monitor, gathering the website metrics.'''
+
+    # Connect to DB to retrieve site infos
+    db = await asyncpg.connect(dsn=settings.postgres_dsn)
+    sites = await load_sites_from_db(db)
+    await db.close()
+
+    # Start and run the Site Monitor
+    site_monitor = SiteMonitor(sites, reports_agent, scan_interval=settings.scan_interval)
+    await site_monitor.run() # Runs forever
 
 
+# Allow the script to be called directly and handle the Faustiness
 if __name__ == '__main__':
     app.main()
