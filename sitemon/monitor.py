@@ -1,10 +1,9 @@
 
 import asyncio
 import logging
-import re
 
 from datetime import datetime
-from typing import Optional, List
+from typing import List
 
 import httpx
 

@@ -1,22 +1,19 @@
 
 import re
-import time
 import logging
 import ssl
 
 from datetime import datetime
-from typing import Any, Optional, AsyncIterable, List
+from typing import Optional, List
 
 import asyncpg
 import faust
-import httpx
 
 from faust.types.streams import StreamT
 
 from .monitor import SiteMonitor
 from .records import SiteInfo, MonitorReport
 from .settings import settings
-from .util import timed
 
 
 log = logging.getLogger(__name__)
