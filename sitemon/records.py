@@ -5,14 +5,14 @@ from typing import Optional
 import faust
 
 
-class SiteInfo(faust.Record, coerce=True):
+class SiteInfo(faust.Record, coerce=True):  # pylint: disable=W0223
     id: int
     name: str
     test_url: str
     regex: Pattern
 
 
-class MonitorReport(faust.Record, coerce=True):
+class MonitorReport(faust.Record, coerce=True):  # pylint: disable=W0223
     site_id: int
     timestamp: datetime
     response_complete: bool
