@@ -50,13 +50,13 @@ class SiteMonitor:
         but they will be bounded by the `_concurrent_checks` semaphore.
         '''
         async with self._concurrent_checks:
-            log.info(f'Starting check for site {site.id}: {site.test_url}')
+            log.info('Starting check for site %d: %s', site.id, site.test_url)
             async with httpx.AsyncClient() as http:
                 timestamp = datetime.now()
                 try:
                     # Perform the request, measuring the time taken
                     rtt, response = await timed(http.get, site.test_url)
-                    log.info(f'Check for site {site.id} completed in {rtt}s ({response.status_code})')
+                    log.info('Check for site %d completed in %ds (%d)', site.id, rtt, response.status_code)
                     
                     # Check the contents against provided regex
                     if site.regex:
@@ -75,7 +75,7 @@ class SiteMonitor:
                     )
 
                 except httpx.HTTPError as e:
-                    log.warn(f'Error connecting to site {site.id}: {e}')
+                    log.warning('Error connecting to site %d: %s', site.id, e)
                     report = MonitorReport(
                         site_id = site.id,
                         timestamp = timestamp,

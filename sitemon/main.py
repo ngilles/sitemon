@@ -55,7 +55,7 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
     async for report in reports:
         async with pool.acquire() as db:
             async with db.transaction():
-                log.info(f'Processing report: {report}')
+                log.info('Processing report: %s', report)
                 await db.execute('''
                     INSERT INTO site_status (site_id, reachable, status_code, content_valid, latency, last_update) 
                     VALUES ($1, $2, $3, $4, $5, $6)
@@ -113,7 +113,7 @@ def parse_site_info(site) -> SiteInfo:
     if site['regex'] is not None:
         pattern = validate_regex_pattern(site['regex'])
         if pattern is None:
-            log.warn(f'Regex pattern for site {site["id"]} is invalid, ignoring...')
+            log.warning('Regex pattern for site %d is invalid, ignoring...', site['id'])
     else:
         pattern = None
 
