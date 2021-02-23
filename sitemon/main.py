@@ -101,6 +101,8 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
                 await save_site_report(db, report)
                 await update_site_status(db, report)
 
+            yield report
+
 
 def validate_regex_pattern(rp: str) -> Optional[re.Pattern]:
     '''Compile a regex pattern, returning None if invalid.'''
