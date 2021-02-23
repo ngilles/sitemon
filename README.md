@@ -27,7 +27,7 @@ A demo of the system can be started locally by using `docker-compose`. First, st
 docker-compose -f docker-compose.local.yaml up -d zookeeper kafka db
 ```
 
-Give the a little time to settle (in particular the postgres db), then rest can be started.
+Give the a little time to settle (in particular the postgres db), then the rest can be started.
 
 ```
 docker-compose -f docker-compose.local.yaml up -d
@@ -67,9 +67,11 @@ SCAN_INTERVAL=60
 
 # Future Improvements and other Unfinished Business
 
-* Time based availability stats, these should be easily implemented with Faust tables
-* Site specific time intervals, could simply be implemented by:
+ - [ ] Add mechanism to wait for db to come up at start up
+ - [ ] Clean up and align nomenclature between db/records
+ - [ ] Time based availability stats, these should be easily implemented with Faust tables
+ - [ ] Site specific time intervals, could simply be implemented by:
     * Adding an `interval` column to the `sites` to the table
     * Spinning up independent looping tasks per site
-* Dynamic configuration of sites at runtime
-* A fancy web UI
+ - [ ] Dynamic configuration of sites at runtime
+ - [ ] A fancy web UI
