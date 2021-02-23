@@ -30,6 +30,53 @@ app = faust.App('sitemon', broker=settings.kafka_broker, **extra_kwargs)
 reports_topic = app.topic('monitor_reports')
 
 
+async def update_site_status(db, report: MonitorReport):
+    '''Updates or inserts the latest status for a given site.
+
+    :param Connection db: The database connection to use
+
+    :param MonitorReport report: The site latest report.
+    '''
+    await db.execute(
+        '''
+        INSERT INTO site_status (site_id, reachable, status_code, content_valid, latency, last_update)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (site_id) DO
+            UPDATE SET
+            reachable = EXCLUDED.reachable,
+            status_code = EXCLUDED.status_code,
+            content_valid = EXCLUDED.content_valid,
+            latency = EXCLUDED.latency,
+            last_update = EXCLUDED.last_update
+        ''',
+        report.site_id,
+        report.response_complete,
+        report.response_code,
+        report.response_valid,
+        report.response_time,
+        report.timestamp,
+    )
+
+
+async def save_site_report(db, report):
+    '''Appends the given report for the site to the database.
+
+    :param Connection db: The database connection to use
+
+    :param MonitorReport report: The site latest report.
+    '''
+    await db.execute(
+        '''INSERT INTO site_reports(site_id, timestamp, reachable, status_code, content_valid, latency)
+                        VALUES ($1, $2, $3, $4, $5, $6)''',
+        report.site_id,
+        report.timestamp,
+        report.response_complete,
+        report.response_code,
+        report.response_valid,
+        report.response_time,
+    )
+
+
 @app.agent(reports_topic)
 async def reports_agent(reports: StreamT[MonitorReport]) -> None:
     '''The Agent responsible storing the site monitoring reports.
@@ -51,36 +98,8 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
         async with pool.acquire() as db:
             async with db.transaction():
                 log.info('Processing report: %s', report)
-                await db.execute(
-                    '''
-                    INSERT INTO site_status (site_id, reachable, status_code, content_valid, latency, last_update)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    ON CONFLICT (site_id) DO
-                        UPDATE SET
-                        reachable = EXCLUDED.reachable,
-                        status_code = EXCLUDED.status_code,
-                        content_valid = EXCLUDED.content_valid,
-                        latency = EXCLUDED.latency,
-                        last_update = EXCLUDED.last_update
-                    ''',
-                    report.site_id,
-                    report.response_complete,
-                    report.response_code,
-                    report.response_valid,
-                    report.response_time,
-                    report.timestamp,
-                )
-
-                await db.execute(
-                    '''INSERT INTO site_reports(site_id, timestamp, reachable, status_code, content_valid, latency)
-                                    VALUES ($1, $2, $3, $4, $5, $6)''',
-                    report.site_id,
-                    report.timestamp,
-                    report.response_complete,
-                    report.response_code,
-                    report.response_valid,
-                    report.response_time,
-                )
+                await save_site_report(db, report)
+                await update_site_status(db, report)
 
 
 def validate_regex_pattern(rp: str) -> Optional[re.Pattern]:
