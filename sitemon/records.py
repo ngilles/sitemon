@@ -9,7 +9,7 @@ class SiteInfo(faust.Record, coerce=True):  # pylint: disable=W0223
     id: int
     name: str
     test_url: str
-    regex: Pattern
+    regex: Optional[Pattern]
 
 
 class MonitorReport(faust.Record, coerce=True):  # pylint: disable=W0223
