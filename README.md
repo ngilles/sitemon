@@ -37,6 +37,8 @@ The monitor will only start correctly once some sites have been added to the dat
 
 # Configuration
 
+## General
+
 The configuration for both the monitor and writers is passed in through environment variables. (Using `.env` file is also supported.)
 
 At minima, the following variables must be defined to specify the Kafka broker and postgres endpoints.
@@ -65,9 +67,29 @@ The last configuration option is the interval between site scans:
 SCAN_INTERVAL=60
 ```
 
+## Sites
+
+The sites to be scanned are stores in the `sites` database table, which contains the following fields:
+
+ * *id*: Numerical id uniquely identifying the site (default: `nextval('sites_id_seq')`)
+ * *name*: A human-readable name for the site
+ * *enabled*: Flag determining if to include the site in scans
+ * *test_url*: The url to perform the scan on
+ * *regex*: An optional regular expression which will be searched within the body of the response to validate the reponse.
+
+A sample configuration could like like:
+
+| id | name      | enabled | test_url               | regex     |
+|----|-----------|---------|------------------------|-----------|
+|  1 | Example   | TRUE    | https://example.com    |           |
+|  2 | Google    | FALSE   | https://google.com     | Google    |
+|  3 | Microsoft | FALSE   | https://microsoft.com  | Microsoft |
+| ...| ...       | ...     | ...                    | ...       |
+
 # Future Improvements and other Unfinished Business
 
  - [ ] Add mechanism to wait for db to come up at start up
+ - [ ] Timing currently measures whole request, including DNS resolution, make this more fine grained
  - [ ] Clean up and align nomenclature between db/records
  - [ ] Time based availability stats, these should be easily implemented with Faust tables
  - [ ] Site specific time intervals, could simply be implemented by:
