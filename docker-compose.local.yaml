@@ -1,0 +1,61 @@
+version: '3.3'
+
+services:
+  monitor:
+    image: 'sitemon'
+    command: '-l info monitor-sites'
+    depends_on:
+      - kafka
+      - db
+    environment:
+      KAFKA_BROKER: 'kafka://kafka:9092'
+      POSTGRES_DSN: 'postgres://sitemon:sitemon@db/sitemon'
+
+  writer:
+    image: 'sitemon'
+    command: 'worker -l info'
+    depends_on:
+      - kafka
+      - db
+    environment:
+      KAFKA_BROKER: 'kafka://kafka:9092'
+      POSTGRES_DSN: 'postgres://sitemon:sitemon@db/sitemon'
+
+
+  zookeeper:
+    image: 'bitnami/zookeeper:3-debian-10'
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: 'yes'
+    volumes:
+      - 'zookeeper_data:/bitnami'
+
+  kafka:
+    image: 'bitnami/kafka:2-debian-10'
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+    volumes:
+      - 'kafka_data:/bitnami'
+
+  db:
+    image: 'postgres:13'
+    environment:
+      POSTGRES_USER: 'sitemon'
+      POSTGRES_PASSWORD: 'sitemon'
+      POSTGRES_DB: 'sitemon'
+    ports:
+      - 5432:5432
+    volumes:
+      - 'postgres_data:/var/lib/postgresql/data'
+      - './schema.sql:/docker-entrypoint-initdb.d/schema.sql'
+
+
+volumes:
+  zookeeper_data:
+    driver: local
+  kafka_data:
+    driver: local
+  postgres_data:
+    driver: local

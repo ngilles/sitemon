@@ -1,0 +1,16 @@
+version: '3.3'
+
+services:
+  monitor:
+    image: 'sitemon'
+    command: '-l info monitor-sites'
+    environment:
+      KAFKA_BROKER: ${KAFKA_BROKER}
+      POSTGRES_DSN: ${POSTGRES_DSN}
+
+  writer:
+    image: 'sitemon'
+    command: 'worker -l info'
+    environment:
+      KAFKA_BROKER: ${KAFKA_BROKER}
+      POSTGRES_DSN: ${POSTGRES_DSN}
