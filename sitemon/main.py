@@ -177,8 +177,11 @@ async def monitor_sites():
     await db.close()
 
     # Start and run the Site Monitor
-    site_monitor = SiteMonitor(sites, reports_agent, scan_interval=settings.scan_interval)
-    await site_monitor.run()  # Runs forever
+    if sites:
+        site_monitor = SiteMonitor(sites, reports_agent, scan_interval=settings.scan_interval)
+        await site_monitor.run()  # Runs forever
+    else:
+        log.error('No site defined to be monitored')
 
 
 # Allow the script to be called directly and handle the Faustiness
