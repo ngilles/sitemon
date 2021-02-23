@@ -1,5 +1,5 @@
 CREATE TABLE public.sites (
-	id int8 NOT NULL,
+	id SERIAL,
 	"name" varchar NOT NULL,
 	"enabled" bool NOT NULL,
 	test_url varchar NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE public.sites (
 );
 
 CREATE TABLE public.site_status (
-	site_id int8 NOT NULL,
+	site_id int4 NOT NULL,
 	reachable bool NOT NULL,
 	latency float4 NULL,
 	status_code int4 NULL,
@@ -20,7 +20,7 @@ CREATE TABLE public.site_status (
 );
 
 CREATE TABLE public.site_reports (
-	site_id int8 NOT NULL,
+	site_id int4 NOT NULL,
 	"timestamp" timestamp(0) NOT NULL,
 	reachable boolean NOT NULL,
 	status_code int4 NULL,
