@@ -58,7 +58,7 @@ KAFKA_ACCESS_CRT=/path/to/access.crt
 For Postgres requiring SSL/TLS can be passed as argument to in the DSN (as ssl=require/verify-ca/verify-full):
 
 ```
-POSTGRES_DSN=postgres://user:pass@db_host:port/db_name?ssl=require
+POSTGRES_DSN=postgres://user:pass@db_host:port/db_name?sslmode=require
 ```
 
 The last configuration option is the interval between site scans:
