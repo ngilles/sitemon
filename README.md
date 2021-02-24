@@ -96,4 +96,5 @@ A sample configuration could like like:
     * Adding an `interval` column to the `sites` to the table
     * Spinning up independent looping tasks per site
  - [ ] Dynamic configuration of sites at runtime
- - [ ] A fancy web UI
+ - [ ] An API ...
+ - [ ] ... and A fancy web UI
