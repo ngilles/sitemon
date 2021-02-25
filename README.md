@@ -95,6 +95,7 @@ A sample configuration could like like:
  - [ ] Site specific time intervals, could simply be implemented by:
     * Adding an `interval` column to the `sites` to the table
     * Spinning up independent looping tasks per site
+ - [ ] Explore use of aiomultiprocess and/or aioitertools for scalability
  - [ ] Dynamic configuration of sites at runtime
  - [ ] An API ...
  - [ ] ... and A fancy web UI
