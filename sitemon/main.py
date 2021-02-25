@@ -7,6 +7,7 @@ from typing import List, Optional
 import asyncpg
 import faust
 from faust.types.streams import StreamT
+from retrying_async import forever, retry
 
 from .monitor import SiteMonitor
 from .records import MonitorReport, SiteInfo
@@ -77,6 +78,34 @@ async def save_site_report(db, report):
     )
 
 
+@retry(attempts=forever)
+async def create_db_pool(*args, **kwargs):
+    '''Creates a database pool, looping until connections can be made successfully.
+
+    All arguments are forwarded to the underlying `asyncpg.create_pool()`.'''
+    try:
+        pool = await asyncpg.create_pool(*args, **kwargs)
+        return pool
+
+    except Exception as e:
+        log.error('There was error connecting to the database: %s, will retry...', e)
+        raise
+
+
+@retry(attempts=forever)
+async def save_to_db(pool, report):
+    '''Saves a report to the database, retrying until successful.'''
+    try:
+        async with pool.acquire() as db:
+            log.info('Processing report: %s', report)
+            async with db.transaction():
+                await save_site_report(db, report)
+                await update_site_status(db, report)
+    except Exception as e:
+        log.error('There was error storing report %s, "%s", will retry...', report, e)
+        raise
+
+
 @app.agent(reports_topic)
 async def reports_agent(reports: StreamT[MonitorReport]) -> None:
     '''The Agent responsible storing the site monitoring reports.
@@ -89,19 +118,14 @@ async def reports_agent(reports: StreamT[MonitorReport]) -> None:
 
     A connection pool is used to manage the connections to the
     database and will handle some connection failures. In case
-    of errors during the insertion in the db, the data point may be
-    lost. The agent will be restarted automatically (by Faust).
+    of errors during the insertion in the db, the operation will
+    be retried indefinitely until successful.
     '''
-    pool = await asyncpg.create_pool(dsn=settings.postgres_dsn)
+    pool = await create_db_pool(dsn=settings.postgres_dsn, min_size=1, max_size=5)
 
     async for report in reports:
-        async with pool.acquire() as db:
-            async with db.transaction():
-                log.info('Processing report: %s', report)
-                await save_site_report(db, report)
-                await update_site_status(db, report)
-
-            yield report
+        await save_to_db(pool, report)
+        yield report
 
 
 def validate_regex_pattern(rp: str) -> Optional[re.Pattern]:

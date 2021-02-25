@@ -88,7 +88,7 @@ A sample configuration could like like:
 
 # Future Improvements and other Unfinished Business
 
- - [ ] Add mechanism to wait for db to come up at start up
+ - [x] Add mechanism to wait for db to come up at start up
  - [ ] Timing currently measures whole request, including DNS resolution, make this more fine grained
  - [ ] Clean up and align nomenclature between db/records
  - [ ] Time based availability stats, these should be easily implemented with Faust tables
